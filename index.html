@@ -9,6 +9,7 @@
   body {
     margin: 0;
     display: flex;
+    flex-direction: column;
     justify-content: center;
     align-items: center;
     height: 100vh;
@@ -22,6 +23,18 @@
     height: 100%;
     object-fit: cover;
     opacity: 0; /* Comienza con el video invisible */
+  }
+
+  #cameraSelect {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    background-color: #333;
+    color: #fff;
+    border: none;
+    padding: 5px 10px;
+    cursor: pointer;
+    z-index: 10;
   }
 
   #cameraButton {
@@ -43,22 +56,56 @@
 </style>
 </head>
 <body>
+<select id="cameraSelect" onchange="changeCamera()"></select>
 <video id="videoElement" autoplay></video>
 <button id="cameraButton" onmouseover="showButton()" onmouseout="hideButton()" onclick="changeCamera()">Cambiar Cámara</button>
 
 <script>
-var currentCamera = 0; // Índice de la cámara actual
-var buttonVisible = false; // Estado del botón
+var videoElement = document.getElementById('videoElement');
+var cameraSelect = document.getElementById('cameraSelect');
+var currentStream;
 
-navigator.mediaDevices.getUserMedia({ video: true })
-  .then(function (stream) {
-    var videoElement = document.getElementById('videoElement');
-    videoElement.srcObject = stream;
-    fadeIn(videoElement); // Agregar la animación gradual aquí
+// Función para listar las cámaras disponibles y poblar el menú desplegable
+navigator.mediaDevices.enumerateDevices()
+  .then(function(devices) {
+    devices.forEach(function(device) {
+      if (device.kind === 'videoinput') {
+        var option = document.createElement('option');
+        option.value = device.deviceId;
+        option.text = device.label || `Cámara ${cameraSelect.length + 1}`;
+        cameraSelect.appendChild(option);
+      }
+    });
+    // Seleccionar la primera cámara por defecto
+    if (cameraSelect.length > 0) {
+      startStream(cameraSelect.value);
+    }
   })
-  .catch(function (error) {
-    console.error('Error al acceder a la cámara:', error);
+  .catch(function(error) {
+    console.error('Error al listar las cámaras:', error);
   });
+
+// Función para iniciar el stream de la cámara seleccionada
+function startStream(deviceId) {
+  if (currentStream) {
+    currentStream.getTracks().forEach(track => track.stop());
+  }
+
+  navigator.mediaDevices.getUserMedia({ video: { deviceId: { exact: deviceId } } })
+    .then(function(stream) {
+      currentStream = stream;
+      videoElement.srcObject = stream;
+      fadeIn(videoElement); // Agregar la animación gradual aquí
+    })
+    .catch(function(error) {
+      console.error('Error al acceder a la cámara:', error);
+    });
+}
+
+// Función para cambiar la cámara según la selección del usuario
+function changeCamera() {
+  startStream(cameraSelect.value);
+}
 
 // Función para hacer aparecer gradualmente el video
 function fadeIn(element) {
@@ -75,36 +122,14 @@ function fadeIn(element) {
 
 // Función para mostrar el botón
 function showButton() {
-  if (!buttonVisible) {
-    var button = document.getElementById('cameraButton');
-    button.style.opacity = 1;
-    buttonVisible = true;
-  }
+  var button = document.getElementById('cameraButton');
+  button.style.opacity = 1;
 }
 
 // Función para ocultar el botón
 function hideButton() {
-  if (buttonVisible) {
-    var button = document.getElementById('cameraButton');
-    button.style.opacity = 0;
-    buttonVisible = false;
-  }
-}
-
-// Función para cambiar la cámara
-function changeCamera() {
-  currentCamera = (currentCamera + 1) % 2; // Cambiar entre 0 y 1
-  var videoElement = document.getElementById('videoElement');
-  videoElement.srcObject.getTracks().forEach(function(track) {
-    track.stop(); // Detener la cámara actual
-  });
-  navigator.mediaDevices.getUserMedia({ video: { facingMode: (currentCamera === 0 ? 'user' : 'environment') } })
-    .then(function (stream) {
-      videoElement.srcObject = stream; // Cambiar a la nueva cámara
-    })
-    .catch(function (error) {
-      console.error('Error al acceder a la cámara:', error);
-    });
+  var button = document.getElementById('cameraButton');
+  button.style.opacity = 0;
 }
 </script>
 </body>
